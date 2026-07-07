@@ -77,23 +77,32 @@ def detect_format(content: str) -> str:
         if line.startswith("[") and "]" in line:
             return "ini"
 
-    # Check for .env format (KEY=value without sections)
+    # Check for key=value format (env or properties)
     has_key_value = False
+    has_dotted_key = False
+    has_bang_comment = False
+
     for line in stripped.split("\n"):
         line = line.strip()
         if not line or line.startswith("#"):
+            # Check for ! comment (Java properties style)
+            if line.lstrip().startswith("!"):
+                has_bang_comment = True
+            continue
+        if line.startswith("!"):
+            has_bang_comment = True
             continue
         if "=" in line:
             has_key_value = True
-            break
+            # Check for dotted keys (Java properties style)
+            key = line.split("=", 1)[0].strip()
+            if "." in key:
+                has_dotted_key = True
 
     if has_key_value:
-        # Check for Java properties style (has ! comments)
-        for line in stripped.split("\n"):
-            line = line.strip()
-            if line.startswith("!"):
-                return "properties"
-
+        # Java properties: uses ! comments or dotted keys (e.g., app.name=value)
+        if has_bang_comment or has_dotted_key:
+            return "properties"
         return "env"
 
     return "unknown"
